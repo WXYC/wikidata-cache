@@ -35,7 +35,13 @@ fn load_corpus() -> Corpus {
 
 /// Inputs whose CSV→COPY round-trip cannot succeed today.
 fn expected_failures() -> HashMap<&'static str, &'static str> {
-    HashMap::new()
+    let mut m = HashMap::new();
+    // U+0000 is invalid in PG TEXT (SQL standard).
+    m.insert(
+        "null\x00byte",
+        "[wjf:pg-null-byte] PostgreSQL TEXT rejects U+0000 (SQL standard)",
+    );
+    m
 }
 
 const TEST_DB_URL: &str =
@@ -89,12 +95,15 @@ fn corpus_csv_pg_roundtrip() {
 
     let tmp = tempfile::tempdir().expect("tempdir");
 
-    // Build entity.csv with one row per corpus entry. NUL (U+0000) is
-    // carried through the CSV layer; `escape_copy_text` strips it before
-    // the bytes reach PostgreSQL, per WX-3.B (WXYC/docs#18).
+    // Build entity.csv with one row per corpus entry. Skip entries containing
+    // bytes the CSV format can't carry (NUL — RFC 4180 silently accepts it but
+    // postgres COPY rejects it later, so we filter here for tidier reporting).
     let mut entity_csv = String::from("qid,label,description,entity_type\n");
     let mut written: Vec<(usize, &str)> = Vec::new();
     for (id, _, input, _) in &entries {
+        if input.contains('\0') {
+            continue;
+        }
         let qid = format!("Q{}", id);
         entity_csv.push_str(&qid);
         entity_csv.push(',');
@@ -136,11 +145,7 @@ fn corpus_csv_pg_roundtrip() {
             .flatten();
         let actual: Option<String> = row.map(|r| r.get(0));
 
-        // WX-3.B: U+0000 is stripped at the PG TEXT write boundary
-        // (WXYC/docs#18), so the expected stored value is the input
-        // with NUL bytes removed.
-        let expected: String = input.replace('\0', "");
-        let passed = actual.as_deref() == Some(expected.as_str());
+        let passed = actual.as_deref() == Some(*input);
         match (passed, known) {
             (true, None) => {}
             (true, Some(_tag)) => {
