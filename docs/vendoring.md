@@ -1,0 +1,3 @@
+# wxyc-etl vendoring (cross-cache-identity)
+
+This repo deploys the `wxyc_identity_match_*` plpgsql function family for cross-cache identity matching. The canonical sources live in WXYC/wxyc-etl@v0.4.0 (`data/`); we vendor byte-for-byte copies under `vendor/wxyc-etl/` (top-level `data/` would conflict with `--data-dir` runtime use). SHA-pinned in `wxyc-etl-pin.txt`. Migration `migrations/0003_wxyc_identity_match_functions.sql` is a sqlx-cli-friendly wrapper that sets up the `wxyc_unaccent` text-search dictionary and then inlines the canonical SQL. The parity test in `tests/wxyc_identity_match_parity_test.rs` enforces pin freshness, migration-vs-canonical byte-equality, and PG-side fixture parity (252 rows + idempotence).
