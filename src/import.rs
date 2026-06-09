@@ -4,6 +4,7 @@
 use anyhow::{Context, Result};
 use postgres::Client;
 use std::path::Path;
+use wxyc_etl::pg::to_pg_text_form;
 
 /// COPY statement for each table, keyed by table name.
 fn copy_stmt(table: &str, columns: &[&str]) -> String {
@@ -45,21 +46,27 @@ const TABLE_DEFS: &[(&str, &str, &[&str])] = &[
 
 /// Escape a string value for PostgreSQL COPY TEXT format.
 ///
-/// Handles backslash, tab, newline, and carriage return. Drops U+0000
-/// (NUL) silently — PostgreSQL TEXT cannot store it (SQL standard), and
-/// per the org-wide WX-3.B policy (WXYC/docs#18) we strip it at every
-/// PG TEXT write boundary. NUL in artist/title metadata is always a
-/// corruption signal, never intentional.
+/// Composes two boundary steps:
 ///
-/// **Caller note**: this function is destructive and intended for the PG
-/// COPY TEXT pipeline only. Do not reuse for human-readable output, log
-/// formatting, or any context where NUL bytes would be useful diagnostic
-/// signal — they're silently swallowed here.
+/// 1. NUL strip via [`wxyc_etl::pg::to_pg_text_form`] — PostgreSQL TEXT
+///    cannot store U+0000 (SQL standard), and per the org-wide WX-3.B
+///    policy (WXYC/docs#18) we strip it at every PG TEXT write boundary.
+///    NUL in artist/title metadata is always a corruption signal, never
+///    intentional. The upstream helper returns `Cow::Borrowed` when no
+///    NUL is present, so the common case stays zero-copy.
+/// 2. COPY-format escape — backslash, tab, newline, and carriage return
+///    are reserved in PG COPY's text format; everything else passes
+///    through unchanged.
+///
+/// **Caller note**: this function is destructive (NUL is silently
+/// swallowed) and intended for the PG COPY TEXT pipeline only. Do not
+/// reuse for human-readable output, log formatting, or any context where
+/// NUL bytes would be useful diagnostic signal.
 fn escape_copy_text(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
+    let stripped = to_pg_text_form(s);
+    let mut out = String::with_capacity(stripped.len());
+    for c in stripped.chars() {
         match c {
-            '\0' => {} // strip at boundary (WXYC/docs#18)
             '\\' => out.push_str("\\\\"),
             '\t' => out.push_str("\\t"),
             '\n' => out.push_str("\\n"),
