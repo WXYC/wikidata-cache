@@ -44,6 +44,7 @@ use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use postgres::Client;
+use wxyc_etl::pg::to_pg_text_form;
 use wxyc_etl::text::{to_identity_match_form, to_identity_match_form_title};
 
 /// Audit string surfaced in INFO logs and asserted by integration tests.
@@ -181,20 +182,6 @@ fn existing_columns(
     Ok(set)
 }
 
-/// Strip NUL bytes (U+0000) from a TEXT value at the PostgreSQL write
-/// boundary, matching the org-wide WX-3.B policy ([WXYC/docs#18]) and
-/// `import.rs::escape_copy_text`. PostgreSQL TEXT cannot store NUL; in
-/// library metadata it's always corruption, never intentional signal.
-///
-/// [WXYC/docs#18]: https://github.com/WXYC/docs/issues/18
-fn strip_pg_null_bytes(s: &str) -> String {
-    s.chars().filter(|c| *c != '\0').collect()
-}
-
-fn strip_pg_null_bytes_opt(s: Option<&str>) -> Option<String> {
-    s.map(strip_pg_null_bytes)
-}
-
 /// Identity-tier normalization for the optional `norm_label` column.
 ///
 /// `to_identity_match_form` returns an empty string for empty input; we want
@@ -276,12 +263,24 @@ pub fn populate_wxyc_library_v2(
         // pass through into norm_artist / norm_title / norm_label and crash
         // the INSERT — every TEXT column that hits PostgreSQL must have been
         // stripped, including the derived ones.
-        let artist_name = strip_pg_null_bytes(&r.artist_name);
-        let album_title = strip_pg_null_bytes(&r.album_title);
-        let label_name = strip_pg_null_bytes_opt(r.label_name.as_deref());
-        let format_name = strip_pg_null_bytes_opt(r.format_name.as_deref());
-        let wxyc_genre = strip_pg_null_bytes_opt(r.wxyc_genre.as_deref());
-        let call_letters = strip_pg_null_bytes_opt(r.call_letters.as_deref());
+        let artist_name = to_pg_text_form(&r.artist_name).into_owned();
+        let album_title = to_pg_text_form(&r.album_title).into_owned();
+        let label_name = r
+            .label_name
+            .as_deref()
+            .map(|s| to_pg_text_form(s).into_owned());
+        let format_name = r
+            .format_name
+            .as_deref()
+            .map(|s| to_pg_text_form(s).into_owned());
+        let wxyc_genre = r
+            .wxyc_genre
+            .as_deref()
+            .map(|s| to_pg_text_form(s).into_owned());
+        let call_letters = r
+            .call_letters
+            .as_deref()
+            .map(|s| to_pg_text_form(s).into_owned());
 
         // norm_artist / norm_title are NOT NULL per §3.1, but Postgres `NOT
         // NULL` rejects SQL NULL — NOT empty strings. An empty artist or
@@ -349,17 +348,6 @@ pub fn populate_wxyc_library_v2(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn strip_pg_null_bytes_drops_nul() {
-        assert_eq!(strip_pg_null_bytes("a\0b"), "ab");
-        assert_eq!(strip_pg_null_bytes("\0a\0b\0"), "ab");
-    }
-
-    #[test]
-    fn strip_pg_null_bytes_clean_input_unchanged() {
-        assert_eq!(strip_pg_null_bytes("Stereolab"), "Stereolab");
-    }
 
     #[test]
     fn norm_label_passes_none_through() {
