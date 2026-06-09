@@ -1144,9 +1144,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.29"
+version = "0.4.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+checksum = "953f07c43838f8e6f9758cab68bf5bed85465e7587ebe0b823f1bcd81978ad3a"
 
 [[package]]
 name = "lru-slab"
@@ -3267,9 +3267,9 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "wxyc-etl"
-version = "0.6.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef019673a0efa28a07fef1836af299c0d8a5988b3045980fd8a5a8fe353ecac7"
+checksum = "d1165ab31222a5893c29224c6ce43687cd66f279022a899b94cff5562aa26ad2"
 dependencies = [
  "anyhow",
  "clap",
