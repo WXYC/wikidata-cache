@@ -54,7 +54,7 @@ jobs:
       # get picked up here so incremental schema changes don't require a full
       # reimport.
       - name: Install sqlx-cli
-        run: cargo install --quiet --version 0.8 sqlx-cli --no-default-features --features postgres
+        run: cargo install --quiet --version 0.8.7 sqlx-cli --no-default-features --features postgres
       - name: Apply pending migrations
         run: sqlx migrate run --source migrations
         env:
