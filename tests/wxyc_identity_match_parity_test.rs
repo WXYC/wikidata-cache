@@ -37,7 +37,10 @@ fn read(path: &str) -> Vec<u8> {
 fn sha256_hex(bytes: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(bytes);
-    format!("{:x}", h.finalize())
+    // digest 0.11 (pulled in by sha2 0.11) returns `Array<u8, _>` from
+    // `finalize()`, which no longer implements `LowerHex`; encode lowercase
+    // hex explicitly to keep byte-identical output to the old `{:x}`.
+    h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn pin_map() -> HashMap<String, String> {
