@@ -3,7 +3,7 @@ name = "wikidata-cache"
 version = "0.1.0"
 edition = "2024"
 description = "Streaming filter for Wikidata JSON dumps + PostgreSQL cache builder for music-relevant entities"
-license = "MIT"
+license = "PolyForm-Noncommercial-1.0.0"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
